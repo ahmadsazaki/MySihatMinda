@@ -1,103 +1,113 @@
 import Database from 'better-sqlite3';
 import { v4 as uuidv4 } from 'uuid';
+import path from 'path';
+import fs from 'fs';
 
-const db = new Database('mysihat.db');
+const isProd = process.env.NODE_ENV === 'production';
+const dbPath = isProd ? '/tmp/mysihat.db' : 'mysihat.db';
+
+console.log(`[DB] Initializing database at: ${dbPath} (isProd: ${isProd})`);
+
+// In production, we might need to copy the initial DB if it exists, 
+// but since we initialize it here, we just use /tmp
+const db = new Database(dbPath);
 
 // Initialize schema
-db.exec(`
-  CREATE TABLE IF NOT EXISTS users (
-    userId TEXT PRIMARY KEY,
-    authId TEXT UNIQUE,
-    language TEXT,
-    consentGiven INTEGER,
-    state TEXT,
-    ageRange TEXT,
-    aiModel TEXT DEFAULT 'openrouter/free',
-    createdAt DATETIME DEFAULT CURRENT_TIMESTAMP
-  );
+try {
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS users (
+      userId TEXT PRIMARY KEY,
+      authId TEXT UNIQUE,
+      language TEXT,
+      consentGiven INTEGER,
+      state TEXT,
+      ageRange TEXT,
+      aiModel TEXT DEFAULT 'openrouter/free',
+      createdAt DATETIME DEFAULT CURRENT_TIMESTAMP
+    );
 
-  CREATE TABLE IF NOT EXISTS screenings (
-    screeningId TEXT PRIMARY KEY,
-    userId TEXT,
-    type TEXT,
-    finalScore INTEGER,
-    severity TEXT,
-    crisisFlag INTEGER,
-    timestamp DATETIME DEFAULT CURRENT_TIMESTAMP,
-    FOREIGN KEY(userId) REFERENCES users(userId)
-  );
+    CREATE TABLE IF NOT EXISTS screenings (
+      screeningId TEXT PRIMARY KEY,
+      userId TEXT,
+      type TEXT,
+      finalScore INTEGER,
+      severity TEXT,
+      crisisFlag INTEGER,
+      timestamp DATETIME DEFAULT CURRENT_TIMESTAMP,
+      FOREIGN KEY(userId) REFERENCES users(userId)
+    );
 
-  CREATE TABLE IF NOT EXISTS responses (
-    responseId TEXT PRIMARY KEY,
-    screeningId TEXT,
-    qNumber INTEGER,
-    answerValue INTEGER,
-    timestamp DATETIME DEFAULT CURRENT_TIMESTAMP,
-    FOREIGN KEY(screeningId) REFERENCES screenings(screeningId)
-  );
+    CREATE TABLE IF NOT EXISTS responses (
+      responseId TEXT PRIMARY KEY,
+      screeningId TEXT,
+      qNumber INTEGER,
+      answerValue INTEGER,
+      timestamp DATETIME DEFAULT CURRENT_TIMESTAMP,
+      FOREIGN KEY(screeningId) REFERENCES screenings(screeningId)
+    );
 
-  CREATE TABLE IF NOT EXISTS micro_programs (
-    programId INTEGER PRIMARY KEY,
-    dayNumber INTEGER,
-    exercise TEXT,
-    reflection TEXT,
-    breathing TEXT
-  );
+    CREATE TABLE IF NOT EXISTS micro_programs (
+      programId INTEGER PRIMARY KEY,
+      dayNumber INTEGER,
+      exercise TEXT,
+      reflection TEXT,
+      breathing TEXT
+    );
 
-  CREATE TABLE IF NOT EXISTS daily_modules (
-    assignmentId TEXT PRIMARY KEY,
-    userId TEXT,
-    dayNumber INTEGER,
-    status TEXT,
-    completionDt DATETIME,
-    reflectionText TEXT,
-    FOREIGN KEY(userId) REFERENCES users(userId)
-  );
+    CREATE TABLE IF NOT EXISTS daily_modules (
+      assignmentId TEXT PRIMARY KEY,
+      userId TEXT,
+      dayNumber INTEGER,
+      status TEXT,
+      completionDt DATETIME,
+      reflectionText TEXT,
+      FOREIGN KEY(userId) REFERENCES users(userId)
+    );
+  `);
 
-  -- Migration for existing tables
-  PRAGMA table_info(daily_modules);
-`);
+  // Ensure columns exist (migration for older databases)
+  const dailyModulesInfo = db.prepare("PRAGMA table_info(daily_modules)").all() as any[];
+  if (!dailyModulesInfo.some(col => col.name === 'reflectionText')) {
+    db.exec("ALTER TABLE daily_modules ADD COLUMN reflectionText TEXT;");
+  }
+  if (!dailyModulesInfo.some(col => col.name === 'completionDt')) {
+    db.exec("ALTER TABLE daily_modules ADD COLUMN completionDt DATETIME;");
+  }
 
-// Ensure columns exist (migration for older databases)
-const dailyModulesInfo = db.prepare("PRAGMA table_info(daily_modules)").all() as any[];
-if (!dailyModulesInfo.some(col => col.name === 'reflectionText')) {
-  db.exec("ALTER TABLE daily_modules ADD COLUMN reflectionText TEXT;");
+  const usersInfo = db.prepare("PRAGMA table_info(users)").all() as any[];
+  if (!usersInfo.some(col => col.name === 'aiModel')) {
+    db.exec("ALTER TABLE users ADD COLUMN aiModel TEXT DEFAULT 'openrouter/free';");
+  }
+  if (!usersInfo.some(col => col.name === 'consentGiven')) {
+    db.exec("ALTER TABLE users ADD COLUMN consentGiven INTEGER;");
+  }
+  if (!usersInfo.some(col => col.name === 'state')) {
+    db.exec("ALTER TABLE users ADD COLUMN state TEXT;");
+  }
+  if (!usersInfo.some(col => col.name === 'ageRange')) {
+    db.exec("ALTER TABLE users ADD COLUMN ageRange TEXT;");
+  }
+
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS ngo_partners (
+      ngoId TEXT PRIMARY KEY,
+      name TEXT,
+      state TEXT,
+      contact TEXT
+    );
+
+    CREATE TABLE IF NOT EXISTS crisis_events (
+      crisisId TEXT PRIMARY KEY,
+      userId TEXT,
+      trigger TEXT,
+      escalation INTEGER,
+      timestamp DATETIME DEFAULT CURRENT_TIMESTAMP,
+      FOREIGN KEY(userId) REFERENCES users(userId)
+    );
+  `);
+} catch (err) {
+  console.error("[DB] Schema initialization/migration error:", err);
 }
-if (!dailyModulesInfo.some(col => col.name === 'completionDt')) {
-  db.exec("ALTER TABLE daily_modules ADD COLUMN completionDt DATETIME;");
-}
-
-const usersInfo = db.prepare("PRAGMA table_info(users)").all() as any[];
-if (!usersInfo.some(col => col.name === 'aiModel')) {
-  db.exec("ALTER TABLE users ADD COLUMN aiModel TEXT DEFAULT 'openrouter/free';");
-}
-if (!usersInfo.some(col => col.name === 'consentGiven')) {
-  db.exec("ALTER TABLE users ADD COLUMN consentGiven INTEGER;");
-}
-if (!usersInfo.some(col => col.name === 'state')) {
-  db.exec("ALTER TABLE users ADD COLUMN state TEXT;");
-}
-if (!usersInfo.some(col => col.name === 'ageRange')) {
-  db.exec("ALTER TABLE users ADD COLUMN ageRange TEXT;");
-}
-
-db.exec(`
-  CREATE TABLE IF NOT EXISTS ngo_partners (
-    ngoId TEXT PRIMARY KEY,
-    name TEXT,
-    state TEXT,
-    contact TEXT
-  );
-
-  CREATE TABLE IF NOT EXISTS crisis_events (
-    crisisId TEXT PRIMARY KEY,
-    userId TEXT,
-    trigger TEXT,
-    escalation INTEGER,
-    timestamp DATETIME DEFAULT CURRENT_TIMESTAMP,
-    FOREIGN KEY(userId) REFERENCES users(userId)
-  );
-`);
 
 // Seed static data for Micro Programs (21 days)
 const programsCount = db.prepare('SELECT COUNT(*) as count FROM micro_programs').get() as { count: number };

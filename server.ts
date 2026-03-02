@@ -9,6 +9,12 @@ async function startServer() {
 
   app.use(express.json());
 
+  // Request logging
+  app.use((req, res, next) => {
+    console.log(`[API] ${req.method} ${req.url}`);
+    next();
+  });
+
   const CRISIS_KEYWORDS = [
     "suicide", "kill myself", "end my life", "self-harm", "jump",
     "bunuh diri", "mencederakan diri", "tamatkan nyawa", "terjun",
@@ -33,13 +39,15 @@ async function startServer() {
     try {
       const existing = db.prepare('SELECT * FROM users WHERE authId = ?').get(authId) as any;
       if (existing) {
+        existing.consentGiven = !!existing.consentGiven;
         return res.json(existing);
       }
       const userId = uuidv4();
       db.prepare('INSERT INTO users (userId, authId, language, state, ageRange, consentGiven) VALUES (?, ?, ?, ?, ?, ?)')
         .run(userId, authId, language, state, ageRange, consentGiven ? 1 : 0);
       
-      const newUser = db.prepare('SELECT * FROM users WHERE userId = ?').get(userId);
+      const newUser = db.prepare('SELECT * FROM users WHERE userId = ?').get(userId) as any;
+      if (newUser) newUser.consentGiven = !!newUser.consentGiven;
       res.json(newUser);
     } catch (err) {
       res.status(500).json({ error: (err as Error).message });
@@ -47,8 +55,9 @@ async function startServer() {
   });
 
   app.get("/api/user/:authId", (req, res) => {
-    const user = db.prepare('SELECT * FROM users WHERE authId = ?').get(req.params.authId);
+    const user = db.prepare('SELECT * FROM users WHERE authId = ?').get(req.params.authId) as any;
     if (!user) return res.status(404).json({ error: "User not found" });
+    user.consentGiven = !!user.consentGiven;
     res.json(user);
   });
 
@@ -225,9 +234,14 @@ async function startServer() {
     app.use(express.static("dist"));
   }
 
-  app.listen(PORT, "0.0.0.0", () => {
-    console.log(`Server running on http://localhost:${PORT}`);
-  });
+  if (!process.env.VERCEL) {
+    app.listen(PORT, "0.0.0.0", () => {
+      console.log(`Server running on http://localhost:${PORT}`);
+    });
+  }
+
+  return app;
 }
 
-startServer();
+const appPromise = startServer();
+export default appPromise;

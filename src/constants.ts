@@ -98,6 +98,7 @@ export const TRANSLATIONS = {
     exhale: "Exhale",
     ready: "Ready?",
     pause: "Pause",
+    errorOccurred: "An error occurred. Please try again.",
     startBreathing: "Start Breathing",
     breathingGuide: "Inhale (4s) • Hold (7s) • Exhale (8s)",
     programContent: {
@@ -233,6 +234,7 @@ export const TRANSLATIONS = {
     exhale: "Hembus",
     ready: "Sedia?",
     pause: "Jeda",
+    errorOccurred: "Ralat telah berlaku. Sila cuba lagi.",
     startBreathing: "Mula Bernafas",
     breathingGuide: "Tarik (4s) • Tahan (7s) • Hembus (8s)",
     programContent: {
@@ -368,6 +370,7 @@ export const TRANSLATIONS = {
     exhale: "呼气",
     ready: "准备好了吗？",
     pause: "暂停",
+    errorOccurred: "发生错误。请再试一次。",
     startBreathing: "开始呼吸",
     breathingGuide: "吸气 (4秒) • 屏息 (7秒) • 呼气 (8秒)",
     programContent: {
@@ -503,6 +506,7 @@ export const TRANSLATIONS = {
     exhale: "வெளியிடவும்",
     ready: "தயாரா?",
     pause: "நிறுத்து",
+    errorOccurred: "ஒரு பிழை ஏற்பட்டது. மீண்டும் முயற்சிக்கவும்.",
     startBreathing: "சுவாசத்தைத் தொடங்குங்கள்",
     breathingGuide: "உள்ளிழுக்கவும் (4வி) • பிடிக்கவும் (7வி) • வெளியிடவும் (8வி)",
     programContent: {

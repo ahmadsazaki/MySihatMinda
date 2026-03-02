@@ -226,23 +226,39 @@ export default function App() {
   };
 
   const handleInitUser = async (state: string, ageRange: string) => {
-    const authId = localStorage.getItem('authId') || `user_${Math.random().toString(36).substr(2, 9)}`;
-    localStorage.setItem('authId', authId);
+    console.log("handleInitUser called:", { state, ageRange, lang });
+    try {
+      const authId = localStorage.getItem('authId') || `user_${Math.random().toString(36).substr(2, 9)}`;
+      localStorage.setItem('authId', authId);
+      console.log("Using authId:", authId);
 
-    const res = await fetch('/api/user/init', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        authId,
-        language: lang,
-        state,
-        ageRange,
-        consentGiven: true
-      })
-    });
-    const data = await res.json();
-    setUser(data);
-    setMode('Dashboard');
+      const res = await fetch('/api/user/init', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          authId,
+          language: lang,
+          state,
+          ageRange,
+          consentGiven: true
+        })
+      });
+      
+      console.log("API Response status:", res.status);
+      if (!res.ok) {
+        const errorData = await res.json();
+        console.error("API Error data:", errorData);
+        throw new Error(errorData.error || 'Failed to initialize user');
+      }
+
+      const data = await res.json();
+      console.log("API Success data:", data);
+      setUser(data);
+      setMode('Dashboard');
+    } catch (err) {
+      console.error("Init User Error:", err);
+      alert(t.errorOccurred || "An error occurred while setting up your profile. Please try again.");
+    }
   };
 
   const submitScreening = async () => {
