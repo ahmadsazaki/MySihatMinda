@@ -1,0 +1,5 @@
+{
+  "name": "MySihat Mind",
+  "description": "AI-powered early-intervention mental health companion for screening, micro-interventions, and crisis support.",
+  "requestFramePermissions": ["geolocation"]
+}
