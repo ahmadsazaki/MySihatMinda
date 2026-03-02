@@ -54,6 +54,34 @@ db.exec(`
     FOREIGN KEY(userId) REFERENCES users(userId)
   );
 
+  -- Migration for existing tables
+  PRAGMA table_info(daily_modules);
+`);
+
+// Ensure columns exist (migration for older databases)
+const dailyModulesInfo = db.prepare("PRAGMA table_info(daily_modules)").all() as any[];
+if (!dailyModulesInfo.some(col => col.name === 'reflectionText')) {
+  db.exec("ALTER TABLE daily_modules ADD COLUMN reflectionText TEXT;");
+}
+if (!dailyModulesInfo.some(col => col.name === 'completionDt')) {
+  db.exec("ALTER TABLE daily_modules ADD COLUMN completionDt DATETIME;");
+}
+
+const usersInfo = db.prepare("PRAGMA table_info(users)").all() as any[];
+if (!usersInfo.some(col => col.name === 'aiModel')) {
+  db.exec("ALTER TABLE users ADD COLUMN aiModel TEXT DEFAULT 'openrouter/free';");
+}
+if (!usersInfo.some(col => col.name === 'consentGiven')) {
+  db.exec("ALTER TABLE users ADD COLUMN consentGiven INTEGER;");
+}
+if (!usersInfo.some(col => col.name === 'state')) {
+  db.exec("ALTER TABLE users ADD COLUMN state TEXT;");
+}
+if (!usersInfo.some(col => col.name === 'ageRange')) {
+  db.exec("ALTER TABLE users ADD COLUMN ageRange TEXT;");
+}
+
+db.exec(`
   CREATE TABLE IF NOT EXISTS ngo_partners (
     ngoId TEXT PRIMARY KEY,
     name TEXT,
